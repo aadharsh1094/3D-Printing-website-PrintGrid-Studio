@@ -1,11 +1,12 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import type * as THREE from "three";
 import { StlViewer, parseStl } from "@/components/stl-viewer";
 import { MATERIALS, calculateQuote, type PrintSettings } from "@/lib/quote";
 import { formatCurrency } from "@/lib/utils";
-import { UploadCloud, RotateCcw, ArrowRight } from "lucide-react";
+import { UploadCloud, RotateCcw, ArrowRight, MessageCircle } from "lucide-react";
 
 type LoadedModel = {
   file: File;
@@ -23,9 +24,15 @@ const DEFAULT_SETTINGS: PrintSettings = {
 };
 
 export default function UploadPage() {
+  const router = useRouter();
   const [model, setModel] = useState<LoadedModel | null>(null);
   const [settings, setSettings] = useState<PrintSettings>(DEFAULT_SETTINGS);
+  const [quantity, setQuantity] = useState(1);
+  const [customerName, setCustomerName] = useState("");
+  const [customerContact, setCustomerContact] = useState("");
+  const [customerEmail, setCustomerEmail] = useState("");
   const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -40,6 +47,8 @@ export default function UploadPage() {
       settings,
     });
   }, [model, settings]);
+
+  const totalWithQty = quote ? quote.total * quantity : 0;
 
   async function handleFile(file: File) {
     setError(null);
@@ -60,7 +69,47 @@ export default function UploadPage() {
   function reset() {
     setModel(null);
     setSettings(DEFAULT_SETTINGS);
+    setQuantity(1);
+    setError(null);
     if (inputRef.current) inputRef.current.value = "";
+  }
+
+  async function submitOrder() {
+    if (!model || !quote) return;
+    if (!customerName.trim() || !customerContact.trim()) {
+      setError("Please provide your name and contact number.");
+      return;
+    }
+    setError(null);
+    setSubmitting(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", model.file);
+      fd.append("customerName", customerName.trim());
+      fd.append("customerContact", customerContact.trim());
+      if (customerEmail.trim()) fd.append("customerEmail", customerEmail.trim());
+      fd.append("materialId", settings.materialId);
+      fd.append("scale", String(settings.scale));
+      fd.append("infillPercent", String(settings.infillPercent));
+      fd.append("wallCount", String(settings.wallCount));
+      fd.append("layerHeightMm", String(settings.layerHeightMm));
+      fd.append("quantity", String(quantity));
+      fd.append("volumeCm3", String(model.volumeCm3));
+      fd.append("bboxX", String(model.bboxCm.x));
+      fd.append("bboxY", String(model.bboxCm.y));
+      fd.append("bboxZ", String(model.bboxCm.z));
+
+      const res = await fetch("/api/orders", { method: "POST", body: fd });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? "Failed to create order");
+      }
+      const { id } = (await res.json()) as { id: string };
+      router.push(`/order/${id}?new=1`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong.");
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -68,11 +117,12 @@ export default function UploadPage() {
       <div className="max-w-2xl">
         <h1 className="text-4xl font-semibold tracking-tight">Upload & quote</h1>
         <p className="mt-3 text-muted-foreground">
-          Drop your STL, tweak the print settings, and see the price update live.
+          Drop your STL, tweak the print settings, and confirm your order on
+          WhatsApp.
         </p>
       </div>
 
-      <div className="mt-10 grid gap-8 lg:grid-cols-[1fr_380px]">
+      <div className="mt-10 grid gap-8 lg:grid-cols-[1fr_420px]">
         <div className="space-y-4">
           {!model ? (
             <label
@@ -87,7 +137,9 @@ export default function UploadPage() {
             >
               <UploadCloud className="h-10 w-10 text-muted-foreground" />
               <p className="mt-4 font-medium">
-                {loading ? "Parsing model..." : "Drop an STL file or click to browse"}
+                {loading
+                  ? "Parsing model..."
+                  : "Drop an STL file or click to browse"}
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
                 Max 100MB • STL only (OBJ/3MF coming soon)
@@ -205,6 +257,40 @@ export default function UploadPage() {
             </select>
           </Field>
 
+          <Field label="Quantity">
+            <input
+              type="number"
+              min={1}
+              max={100}
+              value={quantity}
+              onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+            />
+          </Field>
+
+          <div className="space-y-3 border-t border-border pt-5">
+            <h3 className="text-sm font-semibold">Your details</h3>
+            <input
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              placeholder="Your name"
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+            />
+            <input
+              value={customerContact}
+              onChange={(e) => setCustomerContact(e.target.value)}
+              placeholder="WhatsApp number (with country code)"
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+            />
+            <input
+              type="email"
+              value={customerEmail}
+              onChange={(e) => setCustomerEmail(e.target.value)}
+              placeholder="Email (optional)"
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+            />
+          </div>
+
           <div className="space-y-2 border-t border-border pt-5">
             {quote ? (
               <>
@@ -215,20 +301,32 @@ export default function UploadPage() {
                       <span className="font-mono">{formatCurrency(b.amount)}</span>
                     </div>
                   ))}
+                  {quantity > 1 && (
+                    <div className="flex justify-between">
+                      <span>× {quantity} units</span>
+                      <span className="font-mono">{formatCurrency(totalWithQty - quote.total)}</span>
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-baseline justify-between border-t border-border pt-3">
                   <span className="text-sm font-medium">Total</span>
                   <span className="text-2xl font-semibold text-primary">
-                    {formatCurrency(quote.total)}
+                    {formatCurrency(totalWithQty)}
                   </span>
                 </div>
+                {error && <p className="text-sm text-red-500">{error}</p>}
                 <button
-                  className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
-                  disabled={!model}
+                  onClick={submitOrder}
+                  disabled={!model || submitting}
+                  className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-[#25D366] px-4 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
                 >
-                  Continue to checkout
-                  <ArrowRight className="h-4 w-4" />
+                  <MessageCircle className="h-4 w-4" />
+                  {submitting ? "Submitting..." : "Place order via WhatsApp"}
                 </button>
+                <p className="text-center text-xs text-muted-foreground">
+                  Your order is saved, then you'll be forwarded to WhatsApp to
+                  confirm with us directly.
+                </p>
               </>
             ) : (
               <p className="text-sm text-muted-foreground">
@@ -289,3 +387,5 @@ function Slider({
     </div>
   );
 }
+
+export const dynamic = "force-dynamic";
