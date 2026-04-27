@@ -35,37 +35,94 @@ export type Quote = {
   subtotal: number;
   total: number;
   breakdown: { label: string; amount: number }[];
+  algorithm: PricingAlgorithm;
 };
+
+export type PricingAlgorithm = "volumetric" | "per_gram" | "machine_time";
+
+export const PRICING_OPTIONS: {
+  id: PricingAlgorithm;
+  name: string;
+  blurb: string;
+  bestFor: string;
+}[] = [
+  {
+    id: "volumetric",
+    name: "Volumetric (default)",
+    blurb:
+      "Computes weight from STL volume × density × infill, adds time-based labour, applies a service markup.",
+    bestFor:
+      "Most parts. Strikes a balance between material and machine time, and rewards efficient infill.",
+  },
+  {
+    id: "per_gram",
+    name: "Flat per-gram",
+    blurb:
+      "Just weight × per-gram rate + a fixed handling fee. Doesn't price machine time separately.",
+    bestFor:
+      "Simple, predictable quotes. Good if you want customers to optimize for material weight only.",
+  },
+  {
+    id: "machine_time",
+    name: "Machine-time",
+    blurb:
+      "Estimates print hours from volume and layer height, charges per machine-hour + material cost.",
+    bestFor:
+      "Service bureaus where printer time is the bottleneck. Fine prints get expensive (slow), draft cheap.",
+  },
+];
+
+export const ACTIVE_PRICING_ALGORITHM: PricingAlgorithm = "volumetric";
 
 const BASE_FEE = 50;
 const HOURLY_RATE = 40;
 const MARKUP = 1.2;
 const PRINT_CM3_PER_HOUR = 15;
 
-export function calculateQuote({
-  volumeCm3,
-  settings,
-}: QuoteInput): Quote {
+const FLAT_HANDLING = 80;
+const FLAT_PER_GRAM_MARKUP = 1.6;
+
+const MACHINE_HOURLY = 90;
+const MACHINE_HANDLING = 60;
+
+export function calculateQuote(
+  input: QuoteInput,
+  algorithm: PricingAlgorithm = ACTIVE_PRICING_ALGORITHM
+): Quote {
   const material =
-    MATERIALS.find((m) => m.id === settings.materialId) ?? MATERIALS[0];
-
-  const scaleFactor = settings.scale ** 3;
-  const effectiveVolume = volumeCm3 * scaleFactor;
-
-  const infillFactor = 0.15 + 0.85 * (settings.infillPercent / 100);
-  const wallFactor = 1 + (settings.wallCount - 2) * 0.05;
-  const layerFactor = 0.2 / settings.layerHeightMm;
-
+    MATERIALS.find((m) => m.id === input.settings.materialId) ?? MATERIALS[0];
+  const scaleFactor = input.settings.scale ** 3;
+  const effectiveVolume = input.volumeCm3 * scaleFactor;
+  const infillFactor = 0.15 + 0.85 * (input.settings.infillPercent / 100);
+  const wallFactor = 1 + (input.settings.wallCount - 2) * 0.05;
   const weightGrams = effectiveVolume * material.density * infillFactor * wallFactor;
-  const materialCost = weightGrams * material.ratePerGram;
 
+  const layerFactor = 0.2 / input.settings.layerHeightMm;
   const printTimeHours =
-    (effectiveVolume / PRINT_CM3_PER_HOUR) * layerFactor * (0.8 + infillFactor * 0.5);
-  const laborCost = BASE_FEE + printTimeHours * HOURLY_RATE;
+    (effectiveVolume / PRINT_CM3_PER_HOUR) *
+    layerFactor *
+    (0.8 + infillFactor * 0.5);
 
+  switch (algorithm) {
+    case "per_gram":
+      return computePerGram(weightGrams, printTimeHours, material);
+    case "machine_time":
+      return computeMachineTime(weightGrams, printTimeHours, material);
+    case "volumetric":
+    default:
+      return computeVolumetric(weightGrams, printTimeHours, material);
+  }
+}
+
+function computeVolumetric(
+  weightGrams: number,
+  printTimeHours: number,
+  material: Material
+): Quote {
+  const materialCost = weightGrams * material.ratePerGram;
+  const laborCost = BASE_FEE + printTimeHours * HOURLY_RATE;
   const subtotal = materialCost + laborCost;
   const total = subtotal * MARKUP;
-
   return {
     weightGrams,
     materialCost,
@@ -73,10 +130,75 @@ export function calculateQuote({
     laborCost,
     subtotal,
     total,
+    algorithm: "volumetric",
     breakdown: [
-      { label: `Material (${material.name}, ${weightGrams.toFixed(1)} g)`, amount: materialCost },
-      { label: `Print time (~${printTimeHours.toFixed(1)} h)`, amount: laborCost },
+      {
+        label: `Material (${material.name}, ${weightGrams.toFixed(1)} g)`,
+        amount: materialCost,
+      },
+      {
+        label: `Print time (~${printTimeHours.toFixed(1)} h)`,
+        amount: laborCost,
+      },
       { label: "Service & handling", amount: total - subtotal },
+    ],
+  };
+}
+
+function computePerGram(
+  weightGrams: number,
+  printTimeHours: number,
+  material: Material
+): Quote {
+  const materialCost = weightGrams * material.ratePerGram * FLAT_PER_GRAM_MARKUP;
+  const laborCost = FLAT_HANDLING;
+  const subtotal = materialCost + laborCost;
+  const total = subtotal;
+  return {
+    weightGrams,
+    materialCost,
+    printTimeHours,
+    laborCost,
+    subtotal,
+    total,
+    algorithm: "per_gram",
+    breakdown: [
+      {
+        label: `${material.name} × ${weightGrams.toFixed(1)} g`,
+        amount: materialCost,
+      },
+      { label: "Handling fee", amount: laborCost },
+    ],
+  };
+}
+
+function computeMachineTime(
+  weightGrams: number,
+  printTimeHours: number,
+  material: Material
+): Quote {
+  const materialCost = weightGrams * material.ratePerGram;
+  const laborCost = printTimeHours * MACHINE_HOURLY + MACHINE_HANDLING;
+  const subtotal = materialCost + laborCost;
+  const total = subtotal;
+  return {
+    weightGrams,
+    materialCost,
+    printTimeHours,
+    laborCost,
+    subtotal,
+    total,
+    algorithm: "machine_time",
+    breakdown: [
+      {
+        label: `Material (${weightGrams.toFixed(1)} g)`,
+        amount: materialCost,
+      },
+      {
+        label: `Machine time (${printTimeHours.toFixed(1)} h × ₹${MACHINE_HOURLY})`,
+        amount: laborCost - MACHINE_HANDLING,
+      },
+      { label: "Setup & post-processing", amount: MACHINE_HANDLING },
     ],
   };
 }

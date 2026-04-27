@@ -64,5 +64,24 @@ function initSchema(c: Client) {
     );
     CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
     CREATE INDEX IF NOT EXISTS idx_orders_created ON orders(created_at);
+
+    CREATE TABLE IF NOT EXISTS inventory (
+      id TEXT PRIMARY KEY,
+      material_id TEXT NOT NULL,
+      brand TEXT,
+      color_name TEXT NOT NULL,
+      color_hex TEXT NOT NULL DEFAULT '#888888',
+      spool_capacity_g INTEGER NOT NULL DEFAULT 1000,
+      remaining_g INTEGER NOT NULL,
+      cost_per_spool REAL,
+      supplier TEXT,
+      low_stock_g INTEGER NOT NULL DEFAULT 100,
+      notes TEXT,
+      archived INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_inventory_material ON inventory(material_id);
+    CREATE INDEX IF NOT EXISTS idx_inventory_archived ON inventory(archived);
   `);
 }

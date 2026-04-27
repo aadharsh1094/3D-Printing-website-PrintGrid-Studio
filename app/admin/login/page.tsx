@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Lock } from "lucide-react";
+import Link from "next/link";
+import { Lock, Boxes } from "lucide-react";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -37,50 +38,75 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <div className="mx-auto flex max-w-md flex-col justify-center px-4 py-20 sm:px-6">
-      <div className="rounded-lg border border-border bg-background p-8">
-        <div className="mb-6 flex items-center gap-2">
-          <Lock className="h-5 w-5 text-primary" />
-          <h1 className="text-xl font-semibold">Admin login</h1>
-        </div>
+    <div className="hero-bg flex min-h-screen items-center justify-center px-4 py-12">
+      <div className="w-full max-w-md">
+        <Link
+          href="/"
+          className="mb-6 inline-flex items-center gap-2 text-muted-foreground hover:text-foreground"
+        >
+          <Boxes className="h-5 w-5" />
+          <span className="text-sm font-semibold">PrintGrid Studio</span>
+        </Link>
+        <div className="card p-8">
+          <div className="mb-6 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Lock className="h-5 w-5" />
+            </div>
+            <div>
+              <h1 className="text-xl font-semibold">Admin sign in</h1>
+              <p className="text-xs text-muted-foreground">
+                Authorized personnel only
+              </p>
+            </div>
+          </div>
 
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div>
-            <label className="mb-1.5 block text-sm font-medium">Username</label>
-            <input
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              autoComplete="username"
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-              required
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-              required
-            />
-          </div>
-          {error && <p className="text-sm text-red-500">{error}</p>}
-          <button
-            type="submit"
-            disabled={loading}
-            className="inline-flex h-11 w-full items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
-          >
-            {loading ? "Signing in..." : "Sign in"}
-          </button>
-        </form>
-        <p className="mt-6 text-xs text-muted-foreground">
-          Credentials are set in{" "}
-          <code className="rounded bg-muted px-1">.env.local</code>. Default is{" "}
-          <code className="rounded bg-muted px-1">admin</code> /{" "}
-          <code className="rounded bg-muted px-1">printgrid-admin</code>.
-        </p>
+          <form onSubmit={onSubmit} className="space-y-4">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">
+                Username
+              </label>
+              <input
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                autoComplete="username"
+                className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm"
+                required
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">
+                Password
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+                className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm"
+                required
+              />
+            </div>
+            {error && (
+              <p className="rounded-lg border border-red-500/30 bg-red-500/5 px-3 py-2 text-sm text-red-500">
+                {error}
+              </p>
+            )}
+            <button
+              type="submit"
+              disabled={loading}
+              className="inline-flex h-11 w-full items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow-sm hover:opacity-90 disabled:opacity-50"
+            >
+              {loading ? "Signing in..." : "Sign in"}
+            </button>
+          </form>
+          <p className="mt-6 text-xs text-muted-foreground">
+            Credentials are set in{" "}
+            <code className="rounded bg-muted px-1.5 py-0.5">.env.local</code>.
+            Default:{" "}
+            <code className="rounded bg-muted px-1.5 py-0.5">admin</code> /{" "}
+            <code className="rounded bg-muted px-1.5 py-0.5">printgrid-admin</code>.
+          </p>
+        </div>
       </div>
     </div>
   );

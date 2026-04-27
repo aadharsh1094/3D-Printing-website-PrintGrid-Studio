@@ -1,10 +1,10 @@
 import { notFound } from "next/navigation";
 import { getOrder } from "@/lib/orders";
-import { STATUS_FLOW, STATUS_LABELS, type OrderStatus } from "@/lib/db";
+import { STATUS_FLOW, STATUS_LABELS, type OrderStatus } from "@/lib/types";
 import { MATERIALS } from "@/lib/quote";
 import { formatCurrency } from "@/lib/utils";
 import { WhatsAppRedirect } from "./whatsapp-redirect";
-import { CheckCircle2, Circle, Clock } from "lucide-react";
+import { CheckCircle2, Circle, Clock, MessageCircle } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +22,8 @@ export default async function OrderPage({
 
   const isNew = sp.new === "1";
   const material = MATERIALS.find((m) => m.id === order.material_id);
-  const total = (order.final_price + order.labour_charges) * order.quantity - order.discount;
+  const total =
+    (order.final_price + order.labour_charges) * order.quantity - order.discount;
 
   const waNumber = process.env.WHATSAPP_PHONE ?? "";
   const waMessage = buildWhatsAppMessage(order, total);
@@ -37,32 +38,42 @@ export default async function OrderPage({
         />
       )}
 
-      <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <div>
-          <p className="text-sm font-mono text-muted-foreground">Order {order.id}</p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight">
-            {isNew ? "Order received — let's confirm on WhatsApp" : "Order details"}
+      <div className="fade-up">
+        <p className="font-mono text-sm text-muted-foreground">
+          Order {order.id}
+        </p>
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+            {isNew ? "Order received" : "Order details"}
           </h1>
+          <StatusBadge status={order.status as OrderStatus} />
         </div>
-        <StatusBadge status={order.status as OrderStatus} />
       </div>
 
       {isNew && (
-        <div className="mt-6 rounded-lg border border-primary/30 bg-primary/5 p-4 text-sm">
-          <p className="font-medium">Almost done.</p>
-          <p className="mt-1 text-muted-foreground">
-            {waNumber
-              ? "We're opening WhatsApp now with your order summary. Send the message to lock in your slot. If it didn't open, tap the button below."
-              : "Your order is saved. We'll be in touch shortly."}
-          </p>
-          {waNumber && (
-            <a
-              href={`https://wa.me/${waNumber}?text=${encodeURIComponent(waMessage)}`}
-              className="mt-3 inline-flex h-10 items-center gap-2 rounded-md bg-[#25D366] px-4 text-sm font-medium text-white"
-            >
-              Open WhatsApp
-            </a>
-          )}
+        <div className="mt-6 fade-up rounded-2xl border border-primary/30 bg-primary/5 p-5">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+              <MessageCircle className="h-5 w-5" />
+            </div>
+            <div className="flex-1">
+              <p className="font-semibold">Almost done — confirm on WhatsApp</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {waNumber
+                  ? "We're opening WhatsApp now with your order summary. Send the message to lock in your slot."
+                  : "Your order is saved. We'll be in touch shortly."}
+              </p>
+              {waNumber && (
+                <a
+                  href={`https://wa.me/${waNumber}?text=${encodeURIComponent(waMessage)}`}
+                  className="mt-4 inline-flex h-10 items-center gap-2 rounded-lg bg-[#25D366] px-4 text-sm font-medium text-white shadow-sm"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  Open WhatsApp
+                </a>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
@@ -82,17 +93,15 @@ export default async function OrderPage({
                     ) : (
                       <Circle className="mt-0.5 h-5 w-5 text-muted-foreground/40" />
                     )}
-                    <div>
-                      <p
-                        className={
-                          done
-                            ? "font-medium"
-                            : "font-medium text-muted-foreground"
-                        }
-                      >
-                        {STATUS_LABELS[s]}
-                      </p>
-                    </div>
+                    <p
+                      className={
+                        done
+                          ? "font-medium"
+                          : "font-medium text-muted-foreground"
+                      }
+                    >
+                      {STATUS_LABELS[s]}
+                    </p>
                   </li>
                 );
               })}
@@ -100,7 +109,7 @@ export default async function OrderPage({
           </Card>
 
           <Card title="Print configuration">
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">
               <Row k="File" v={order.file_name} />
               <Row k="Material" v={material?.name ?? order.material_id} />
               <Row
@@ -116,10 +125,10 @@ export default async function OrderPage({
           </Card>
         </div>
 
-        <aside className="space-y-3 rounded-lg border border-border bg-background p-6">
+        <aside className="card space-y-3 p-6">
           <h2 className="text-sm font-semibold">Summary</h2>
-          <div className="space-y-1 text-sm text-muted-foreground">
-            <Line k={`Unit price`} v={formatCurrency(order.final_price)} />
+          <div className="space-y-1.5 text-sm text-muted-foreground">
+            <Line k="Unit price" v={formatCurrency(order.final_price)} />
             {order.labour_charges > 0 && (
               <Line k="Labour" v={formatCurrency(order.labour_charges)} />
             )}
@@ -132,15 +141,16 @@ export default async function OrderPage({
           </div>
           <div className="flex items-baseline justify-between border-t border-border pt-3">
             <span className="text-sm font-medium">Total</span>
-            <span className="text-2xl font-semibold text-primary">
+            <span className="text-2xl font-bold gradient-text">
               {formatCurrency(total)}
             </span>
           </div>
           {waNumber && !isNew && (
             <a
               href={`https://wa.me/${waNumber}?text=${encodeURIComponent(`Hi, checking on my order ${order.id}`)}`}
-              className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-border bg-background px-4 text-sm font-medium hover:bg-muted"
+              className="mt-2 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-border bg-background px-4 text-sm font-medium hover:bg-muted"
             >
+              <MessageCircle className="h-4 w-4" />
               Ping us on WhatsApp
             </a>
           )}
@@ -170,9 +180,15 @@ function buildWhatsAppMessage(
   ].join("\n");
 }
 
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
+function Card({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
-    <section className="rounded-lg border border-border bg-background p-6">
+    <section className="card p-6">
       <h2 className="mb-4 text-sm font-semibold">{title}</h2>
       {children}
     </section>

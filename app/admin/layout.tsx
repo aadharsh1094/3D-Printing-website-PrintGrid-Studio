@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { headers } from "next/headers";
-import { LogOut, LayoutDashboard, Package, Calculator } from "lucide-react";
-import { LogoutButton } from "./logout-button";
+import { Boxes } from "lucide-react";
+import { AdminSidebar } from "./admin-sidebar";
 
 export const dynamic = "force-dynamic";
 
@@ -19,44 +19,29 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-7xl gap-6 px-4 py-6 sm:px-6">
-      <aside className="hidden w-56 shrink-0 lg:block">
-        <nav className="sticky top-20 space-y-1">
-          <AdminLink href="/admin" label="Dashboard" icon={LayoutDashboard} />
-          <AdminLink href="/admin/orders" label="Orders" icon={Package} />
-          <AdminLink
-            href="/admin/quick-quote"
-            label="Quick Quote"
-            icon={Calculator}
-          />
-          <div className="mt-6 border-t border-border pt-3">
-            <LogoutButton />
-          </div>
-        </nav>
+    <div className="flex min-h-screen bg-muted/40">
+      <aside className="hidden w-60 shrink-0 border-r border-border bg-background lg:block">
+        <div className="sticky top-0 flex h-screen flex-col">
+          <Link
+            href="/admin"
+            className="flex items-center gap-2 border-b border-border px-5 py-4"
+          >
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Boxes className="h-5 w-5" />
+            </span>
+            <div className="flex flex-col leading-tight">
+              <span className="text-sm font-semibold">PrintGrid</span>
+              <span className="text-xs text-muted-foreground">Admin</span>
+            </div>
+          </Link>
+          <AdminSidebar />
+        </div>
       </aside>
-      <div className="min-w-0 flex-1">{children}</div>
+      <div className="min-w-0 flex-1">
+        <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
+          {children}
+        </div>
+      </div>
     </div>
   );
 }
-
-function AdminLink({
-  href,
-  label,
-  icon: Icon,
-}: {
-  href: string;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-}) {
-  return (
-    <Link
-      href={href}
-      className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
-    >
-      <Icon className="h-4 w-4" />
-      {label}
-    </Link>
-  );
-}
-
-void LogOut;

@@ -23,6 +23,23 @@ export const STATUS_FLOW: OrderStatus[] = [
   "delivered",
 ];
 
+export type InventoryItem = {
+  id: string;
+  material_id: string;
+  brand: string | null;
+  color_name: string;
+  color_hex: string;
+  spool_capacity_g: number;
+  remaining_g: number;
+  cost_per_spool: number | null;
+  supplier: string | null;
+  low_stock_g: number;
+  notes: string | null;
+  archived: number;
+  created_at: number;
+  updated_at: number;
+};
+
 export type OrderRow = {
   id: string;
   customer_name: string;

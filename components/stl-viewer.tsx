@@ -2,7 +2,14 @@
 
 import { Suspense, useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { OrbitControls, Grid, Center } from "@react-three/drei";
+import {
+  OrbitControls,
+  Grid,
+  Center,
+  ContactShadows,
+  Environment,
+  PerspectiveCamera,
+} from "@react-three/drei";
 import * as THREE from "three";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 
@@ -25,19 +32,27 @@ function Model({ geometry, scale, color }: Props) {
 
   useFrame(() => {
     if (meshRef.current) {
-      meshRef.current.rotation.z += 0.0015;
+      meshRef.current.rotation.z += 0.0012;
     }
   });
 
   if (!finalGeometry) return null;
 
   return (
-    <Center>
-      <mesh ref={meshRef} geometry={finalGeometry} scale={scale} castShadow receiveShadow>
-        <meshStandardMaterial
+    <Center top>
+      <mesh
+        ref={meshRef}
+        geometry={finalGeometry}
+        scale={scale}
+        castShadow
+        receiveShadow
+      >
+        <meshPhysicalMaterial
           color={color}
-          metalness={0.05}
-          roughness={0.55}
+          metalness={0.15}
+          roughness={0.45}
+          clearcoat={0.25}
+          clearcoatRoughness={0.45}
           flatShading={false}
         />
       </mesh>
@@ -56,8 +71,8 @@ function CameraFit({ geometry }: { geometry: THREE.BufferGeometry | null }) {
     const size = new THREE.Vector3();
     box.getSize(size);
     const maxDim = Math.max(size.x, size.y, size.z);
-    const dist = maxDim * 2.2;
-    camera.position.set(dist, dist, dist);
+    const dist = maxDim * 2.5;
+    camera.position.set(dist, dist * 0.85, dist);
     camera.lookAt(0, 0, 0);
     if (camera instanceof THREE.PerspectiveCamera) {
       camera.updateProjectionMatrix();
@@ -69,35 +84,59 @@ function CameraFit({ geometry }: { geometry: THREE.BufferGeometry | null }) {
 
 export function StlViewer({ geometry, scale, color }: Props) {
   return (
-    <div className="relative h-[420px] w-full overflow-hidden rounded-lg border border-border bg-gradient-to-b from-muted/40 to-background">
-      <Canvas shadows camera={{ position: [60, 60, 60], fov: 45 }}>
-        <ambientLight intensity={0.6} />
+    <div className="relative h-[460px] w-full overflow-hidden rounded-2xl border border-border bg-gradient-to-b from-muted/60 via-background to-background">
+      <Canvas shadows dpr={[1, 2]}>
+        <PerspectiveCamera makeDefault position={[60, 50, 60]} fov={42} />
+
+        <ambientLight intensity={0.35} />
         <directionalLight
-          position={[50, 80, 30]}
-          intensity={1.1}
+          position={[40, 80, 30]}
+          intensity={1.2}
           castShadow
-          shadow-mapSize-width={1024}
-          shadow-mapSize-height={1024}
+          shadow-mapSize-width={2048}
+          shadow-mapSize-height={2048}
+          shadow-bias={-0.0001}
         />
-        <directionalLight position={[-40, -20, -30]} intensity={0.35} />
+        <directionalLight position={[-40, 20, -40]} intensity={0.45} />
+        <directionalLight position={[0, -40, 0]} intensity={0.15} />
 
         <Suspense fallback={null}>
+          <Environment preset="city" />
           <Model geometry={geometry} scale={scale} color={color} />
         </Suspense>
 
-        <Grid
-          args={[200, 200]}
-          cellSize={10}
-          cellColor="#666"
-          sectionSize={50}
-          sectionColor="#999"
-          fadeDistance={250}
-          infiniteGrid
+        <ContactShadows
           position={[0, -0.01, 0]}
+          opacity={0.45}
+          scale={120}
+          blur={2.5}
+          far={20}
+          resolution={512}
+          frames={1}
+        />
+
+        <Grid
+          args={[400, 400]}
+          cellSize={10}
+          cellThickness={0.6}
+          cellColor="#9ca3af"
+          sectionSize={50}
+          sectionThickness={1}
+          sectionColor="#6b7280"
+          fadeDistance={300}
+          fadeStrength={1.2}
+          infiniteGrid
+          position={[0, -0.02, 0]}
         />
 
         <CameraFit geometry={geometry} />
-        <OrbitControls enableDamping makeDefault />
+        <OrbitControls
+          enableDamping
+          dampingFactor={0.08}
+          minDistance={20}
+          maxDistance={500}
+          makeDefault
+        />
       </Canvas>
 
       {!geometry && (
