@@ -87,7 +87,8 @@ Add later if the funnel needs them. Don't add to "look complete".
 | Location | Chennai (primary) · Hyderabad (pickup from end of June 2026) |
 | Shipping | Pan-India. BlueDart / Delhivery. Flat ₹120, free over ₹2,500. |
 | Lead time | 3–5 days from payment + 1–5 days transit |
-| Build volume | 300 × 300 × 300 mm |
+| **Printer** | **Bambu P1S with AMS** *(multicolor up to 4 colors per print)* |
+| Build volume | **256 × 256 × 256 mm** *(P1S envelope — confirmed)* |
 | Layer heights | 0.12 – 0.28 mm |
 | Tolerance | ± 0.15 mm typical |
 | Min order | ₹199 |
@@ -99,29 +100,72 @@ Add later if the funnel needs them. Don't add to "look complete".
 
 ### Materials (FDM only — no resin anywhere on the site)
 
+Rates are **all-in selling prices** (Aadharsh has factored material + electricity +
+labour + depreciation + machine time + amortized setup into each per-gram rate).
+The pricing engine therefore does **not** add a separate machine-time line and
+does **not** apply a margin multiplier — these rates are what we bill.
+
 | Material | Rate | Density | Tensile | Max temp | Use |
 |---|---|---|---|---|---|
-| PLA | ₹3.50/g | 1.24 g/cm³ | 50 MPa | 55 °C | Visual prototypes |
-| PLA+ | ₹4.50/g | 1.24 g/cm³ | 65 MPa | 60 °C | Drone parts, brackets |
-| PETG | ₹5.00/g | 1.27 g/cm³ | 50 MPa | 75 °C | Outdoor, enclosures |
-| ABS | ₹5.50/g | 1.04 g/cm³ | 40 MPa | 95 °C | Jigs, machinable parts |
-| TPU 95A | ₹8.50/g | 1.21 g/cm³ | 30 MPa | 80 °C | Flex parts, gaskets |
-| PA-CF | ₹22/g | 1.16 g/cm³ | 90 MPa | 130 °C | Engineering parts |
+| PLA+ | ₹4.50 / g | 1.24 g/cm³ | 65 MPa | 60 °C | Default — visual prototypes, drone parts, brackets |
+| PLA LW *(lightweight)* | ₹18.00 / g | 0.65 g/cm³ effective | 35 MPa | 55 °C | RC/UAV airframe parts |
+| PETG | ₹6.00 / g | 1.27 g/cm³ | 50 MPa | 75 °C | Outdoor, enclosures |
+| ABS | ₹6.50 / g | 1.04 g/cm³ | 40 MPa | 95 °C | Jigs, machinable parts |
+| TPU 95A | ₹11.00 / g | 1.21 g/cm³ | 30 MPa | 80 °C | Flex parts, gaskets |
+| PA6 *(nylon)* | ₹20.00 / g | 1.14 g/cm³ | 65 MPa | 110 °C | Tough functional parts |
+| PA-CF *(carbon-fibre nylon)* | ₹21.00 / g | 1.16 g/cm³ | 90 MPa | 130 °C | Engineering parts |
 
-### Pricing model (mandatory — this is the studio's promise)
+> Studio stocks 7 FDM materials. PLA+ is the default; we don't stock plain
+> PLA (PLA+ supersedes it for ~every use case).
+
+> Catalog leaves room for new materials. Add to this table + the engine's
+> `MATERIALS` constant when stocked.
+
+### Multicolor (AMS)
+
+Multicolor prints use the AMS for up to 4 colors per part. They consume extra
+filament for color-swap purges and need more setup care. **Multicolor surcharge:
++20 % on the part's unit price** (covers purge waste + AMS handling). Set a
+`multicolor` boolean flag in the engine.
+
+### Pricing model — model B (selling rate, GST-inclusive)
 
 ```
-unit_price = (material + machine + setup + finish) × 1.25 margin
-material   = effective_volume × density × ₹/g     (effective vol = shell + infill fraction)
-machine    = print_time_hours × ₹45/hr
-setup      = ₹100 / unique file
-finish     = 0 (as-printed) → ₹280 (gloss paint)
-quantity discount = 5% @ qty10, 10% @ qty20, 15% @ qty50
-order min = ₹199
+material_paise = grams × material.ratePerGram             // GST-inclusive
+layer_mult     = { 0.28: 0.85, 0.24: 0.95, 0.20: 1.00, 0.16: 1.15, 0.12: 1.35 }
+multicolor     = ×1.20 (AMS multicolor; applies to base + finish)
+finish_paise   = 0 (as-printed) | ₹75 sanded | ₹90 primer | ₹280 gloss paint
+per_unit       = ((material × layer_mult) + finish) × multicolor
+qty_discount   = 5% @ 10, 10% @ 20, 15% @ 50  (applies to per_unit × qty only)
+line_subtotal  = per_unit × qty × (1 − qty_discount)      // material-only discount
+setup_paise    = ₹100 × file_count                         // NOT discounted
+rush           = +25% of (Σ line_subtotal + setup) when toggled
+promo          = applied to (Σ line_subtotal + setup + rush)
+subtotal       = max(Σ line_subtotal + setup + rush − promo, ₹199)
+                                                           // GST-inclusive, headline
+// shipping, payment fee, GST breakout = checkout-stage only
 ```
+
+NO separate machine-time × ₹/hr line. NO 1.25× margin multiplier on top.
+Per-gram rates already include both.
+
+### Razorpay payment processing
+
+Razorpay account is **set up and ready** (live keys available). Razorpay
+charges ~2% per transaction (UPI/cards/netbanking). We **pass this through
+to the customer** as a visible line on the quote breakdown labelled
+"Payment processing (2%)". This is industry-standard transparency in Indian
+e-commerce and protects studio margin.
 
 Quote engine MUST compute these from the actual STL mesh — no hardcoded prices,
 no email-back-with-quote.
+
+### Profitability guard rails (review after first 50 orders)
+
+- Watch average margin on orders < ₹500. If under 30%, raise setup to ₹150 or
+  raise minimum to ₹249.
+- Watch margin per machine-hour by material. If TPU or PA-CF margin shrinks
+  vs PLA, those rates need to creep up.
 
 ---
 
@@ -344,7 +388,7 @@ real interactive work lives — STL parsing, live pricing, Razorpay).
 - [x] **WhatsApp: +91 75400 23670**
 - [x] **Email: `aadharsh.j10@gmail.com`** *(set up `hello@printgrid.co.in` later)*
 - [ ] First sample STL to test the quote engine end-to-end *(placeholder OK for now)*
-- [ ] Razorpay account — needs setup or already created? *(placeholder OK)*
+- [x] **Razorpay account — set up, live keys ready.** 2% transaction fee passed to customer.
 - [ ] Hostinger DNS — where is `printgrid.co.in` pointing right now? *(placeholder OK; we'll point it at the deploy target later)*
 - [ ] Studio photo when ready *(hold off until Hyderabad opens — fine to launch v1 without)*
 
